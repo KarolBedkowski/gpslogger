@@ -14,8 +14,10 @@ import android.location.LocationManager;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.PowerManager;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
+
 import com.mendhak.gpslogger.common.AppSettings;
 import com.mendhak.gpslogger.common.IActionListener;
 import com.mendhak.gpslogger.common.Session;
@@ -51,7 +53,9 @@ public class GpsLoggingService extends Service implements IActionListener
     private Intent alarmIntent;
 
     AlarmManager nextPointAlarmManager;
-
+    
+    private static String WAKE_LOCK_TAG = "com.mendhak.gpslogger.WAKE_LOCK";
+    private PowerManager.WakeLock wakeLock = null;
     // ---------------------------------------------------
 
     @Override
@@ -400,6 +404,10 @@ public class GpsLoggingService extends Service implements IActionListener
         Session.setCurrentLocationInfo(null);
         stopForeground(true);
 
+        if (wakeLock != null && wakeLock.isHeld()) 
+        {
+        	wakeLock.release();
+        }
         RemoveNotification();
         StopAlarm();
         StopGpsManager();
@@ -541,6 +549,19 @@ public class GpsLoggingService extends Service implements IActionListener
             return;
         }
 
+		if (wakeLock == null)
+		{
+			PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+			if (pm != null) 
+			{  // protect for missing permissions 
+				wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
+						GpsLoggingService.WAKE_LOCK_TAG);
+			}
+		}
+        if (wakeLock != null && !wakeLock.isHeld()) 
+        {
+        	wakeLock.acquire();
+        }
         SetStatus(R.string.started);
     }
 
@@ -817,6 +838,4 @@ public class GpsLoggingService extends Service implements IActionListener
     {
         return mainServiceClient != null;
     }
-
-
 }
